@@ -6,6 +6,8 @@ import dev.miracle.ecommerce.kafka.OrderConfirmation;
 import dev.miracle.ecommerce.kafka.OrderProducer;
 import dev.miracle.ecommerce.orderline.OrderLineRequest;
 import dev.miracle.ecommerce.orderline.OrderLineService;
+import dev.miracle.ecommerce.payment.PaymentClient;
+import dev.miracle.ecommerce.payment.PaymentRequest;
 import dev.miracle.ecommerce.product.ProductClient;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +25,7 @@ public class OrderService {
     private final OrderMapper mapper;
     private final OrderLineService orderLineService;
     private final OrderProducer orderProducer;
+    private final PaymentClient paymentClient;
 
     public Integer createOrder(OrderRequest request) {
         // check the customer -> OpenFein
@@ -47,6 +50,14 @@ public class OrderService {
             );
         }
         // start payment process
+        var paymentRequest = new PaymentRequest(
+                request.amount(),
+                request.paymentMethod(),
+                order.getId(),
+                order.getReference(),
+                customer
+        );
+        paymentClient.requestOrderPayment(paymentRequest);
 
         // send the order confirmation -> notification-ms (kafka)
         orderProducer.sendOrderConfirmation(
